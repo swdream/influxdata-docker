@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 AUTH_ENABLED="$INFLUXDB_HTTP_AUTH_ENABLED"
 
@@ -10,11 +10,12 @@ else
 fi
 
 INIT_USERS=$([ ! -z "$AUTH_ENABLED" ] && [ ! -z "$INFLUXDB_ADMIN_USER" ] && echo 1 || echo)
+INFLUXDB_DB=$([ ! -z "$INFLUXDB_DB_1" ] || [ ! -z "$INFLUXDB_DB_2" ] || [ ! -z "$INFLUXDB_DB_3" ] && echo 1 || echo)
 
 if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-entrypoint-initdb.d 2> /dev/null)" ] ) && [ ! "$(ls -d /var/lib/influxdb/meta 2>/dev/null)" ]; then
 
 	INIT_QUERY=""
-	CREATE_DB_QUERY="CREATE DATABASE $INFLUXDB_DB"
+	CREATE_DB_QUERY="CREATE DATABASE $1"
 
 	if [ ! -z "$INIT_USERS" ]; then
 
@@ -25,7 +26,19 @@ if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-ent
 
 		INIT_QUERY="CREATE USER $INFLUXDB_ADMIN_USER WITH PASSWORD '$INFLUXDB_ADMIN_PASSWORD' WITH ALL PRIVILEGES"
 	elif [ ! -z "$INFLUXDB_DB" ]; then
-		INIT_QUERY="$CREATE_DB_QUERY"
+                echo "create db"
+                if [ ! -z "$INFLUXDB_DB_1" ]; then
+		        INIT_QUERY="CREATE DATABASE $INFLUXDB_DB_1"
+			echo "create db 1"
+                fi
+                if [ ! -z "$INFLUXDB_DB_2" ]; then
+		        INIT_QUERY="CREATE DATABASE $INFLUXDB_DB_2"
+			echo "create db 2"
+                fi
+                if [ ! -z "$INFLUXDB_DB_3" ]; then
+		        INIT_QUERY="CREATE DATABASE $INFLUXDB_DB_3"
+			echo "create db 3"
+                fi
 	else
 		INIT_QUERY="SHOW DATABASES"
 	fi
@@ -54,22 +67,22 @@ if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-ent
 
 		INFLUX_CMD="influx -host 127.0.0.1 -port $INFLUXDB_INIT_PORT -username ${INFLUXDB_ADMIN_USER} -password ${INFLUXDB_ADMIN_PASSWORD} -execute "
 
-		if [ ! -z "$INFLUXDB_DB" ]; then
+		if [ ! -z "$INFLUXDB_DB_1" ]; then
 			$INFLUX_CMD "$CREATE_DB_QUERY"
 		fi
 
-		if [ ! -z "$INFLUXDB_USER" ] && [ -z "$INFLUXDB_USER_PASSWORD" ]; then
-			INFLUXDB_USER_PASSWORD="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
-			echo "INFLUXDB_USER_PASSWORD:$INFLUXDB_USER_PASSWORD"
+		if [ ! -z "$INFLUXDB_USER_1" ] && [ -z "$INFLUXDB_USER_PASSWORD_1" ]; then
+			INFLUXDB_USER_PASSWORD_1="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
+			echo "INFLUXDB_USER_PASSWORD_1:$INFLUXDB_USER_PASSWORD_1"
 		fi
 
-		if [ ! -z "$INFLUXDB_USER" ]; then
-			$INFLUX_CMD "CREATE USER $INFLUXDB_USER WITH PASSWORD '$INFLUXDB_USER_PASSWORD'"
+		if [ ! -z "$INFLUXDB_USER_1" ]; then
+			$INFLUX_CMD "CREATE USER $INFLUXDB_USER_1 WITH PASSWORD '$INFLUXDB_USER_PASSWORD_1'"
 
-			$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_USER"""
+			$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_USER_1"""
 
-			if [ ! -z "$INFLUXDB_DB" ]; then
-				$INFLUX_CMD "GRANT ALL ON ""$INFLUXDB_DB"" TO ""$INFLUXDB_USER"""
+			if [ ! -z "$INFLUXDB_DB_1" ]; then
+				$INFLUX_CMD "GRANT ALL ON ""$INFLUXDB_DB_1"" TO ""$INFLUXDB_USER_1"""
 			fi
 		fi
 
