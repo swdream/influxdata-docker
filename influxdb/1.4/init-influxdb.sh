@@ -17,6 +17,13 @@ if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-ent
 	INIT_QUERY=""
 	CREATE_DB_QUERY="CREATE DATABASE"
 
+	INFLUXDB_INIT_PORT="8086"
+
+	INFLUXDB_HTTP_BIND_ADDRESS=127.0.0.1:$INFLUXDB_INIT_PORT INFLUXDB_HTTP_HTTPS_ENABLED=false influxd "$@" &
+	pid="$!"
+
+	INFLUX_CMD="influx -host 127.0.0.1 -port $INFLUXDB_INIT_PORT -execute "
+
 	if [ ! -z "$INIT_USERS" ]; then
 
 		if [ -z "$INFLUXDB_ADMIN_PASSWORD" ]; then
@@ -28,7 +35,8 @@ if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-ent
 	elif [ ! -z "$INFLUXDB_DB" ]; then
                 echo "create db"
                 if [ ! -z "$INFLUXDB_DB_1" ]; then
-		        INIT_QUERY="CREATE DATABASE $INFLUXDB_DB_1"
+                        echo $INFLUXDB_DB_1
+		        INIT_QUERY="CREATE DATABASE test1"
 			echo "create db 1"
                 fi
                 if [ ! -z "$INFLUXDB_DB_2" ]; then
@@ -42,13 +50,7 @@ if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-ent
 	else
 		INIT_QUERY="SHOW DATABASES"
 	fi
-
-	INFLUXDB_INIT_PORT="8086"
-
-	INFLUXDB_HTTP_BIND_ADDRESS=127.0.0.1:$INFLUXDB_INIT_PORT INFLUXDB_HTTP_HTTPS_ENABLED=false influxd "$@" &
-	pid="$!"
-
-	INFLUX_CMD="influx -host 127.0.0.1 -port $INFLUXDB_INIT_PORT -execute "
+        echo "thanh prints $INIT_QUERY"
 
 	for i in {30..0}; do
 		if $INFLUX_CMD "$INIT_QUERY" &> /dev/null; then
@@ -66,54 +68,68 @@ if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-ent
 	if [ ! -z "$INIT_USERS" ]; then
 
 		INFLUX_CMD="influx -host 127.0.0.1 -port $INFLUXDB_INIT_PORT -username ${INFLUXDB_ADMIN_USER} -password ${INFLUXDB_ADMIN_PASSWORD} -execute "
-
-		if [ ! -z "$INFLUXDB_DB_1" ]; then
-			$INFLUX_CMD "$CREATE_DB_QUERY"
-		fi
-
-		if [ ! -z "$INFLUXDB_USER_1" ] && [ -z "$INFLUXDB_USER_PASSWORD_1" ]; then
-			INFLUXDB_USER_PASSWORD_1="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
-			echo "INFLUXDB_USER_PASSWORD_1:$INFLUXDB_USER_PASSWORD_1"
-		fi
-
-		if [ ! -z "$INFLUXDB_USER_1" ]; then
-			$INFLUX_CMD "CREATE USER $INFLUXDB_USER_1 WITH PASSWORD '$INFLUXDB_USER_PASSWORD_1'"
-
-			$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_USER_1"""
-
-			if [ ! -z "$INFLUXDB_DB_1" ]; then
-				$INFLUX_CMD "GRANT ALL ON ""$INFLUXDB_DB_1"" TO ""$INFLUXDB_USER_1"""
-			fi
-		fi
-
-		if [ ! -z "$INFLUXDB_WRITE_USER" ] && [ -z "$INFLUXDB_WRITE_USER_PASSWORD" ]; then
-			INFLUXDB_WRITE_USER_PASSWORD="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
-			echo "INFLUXDB_WRITE_USER_PASSWORD:$INFLUXDB_WRITE_USER_PASSWORD"
-		fi
-
-		if [ ! -z "$INFLUXDB_WRITE_USER" ]; then
-			$INFLUX_CMD "CREATE USER $INFLUXDB_WRITE_USER WITH PASSWORD '$INFLUXDB_WRITE_USER_PASSWORD'"
-			$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_WRITE_USER"""
-
+                for i in {1..5}; do
+                        INFLUXDB_DB=INFLUXDB_DB_$i
+                        INFLUXDB_DB=${!INFLUXDB_DB}
+                        INFLUXDB_USER=INFLUXDB_USER_$i
+                        INFLUXDB_USER=${!INFLUXDB_USER}
+                        INFLUXDB_USER_PASSWORD=INFLUXDB_USER_PASSWORD_$i
+                        INFLUXDB_USER_PASSWORD=${!INFLUXDB_USER_PASSWORD}
+                        INFLUXDB_WRITE_USER=INFLUXDB_WRITE_USER_$i
+                        INFLUXDB_WRITE_USER=${!INFLUXDB_WRITE_USER}
+                        INFLUXDB_WRITE_USER_PASSWORD=INFLUXDB_WRITE_USER_PASSWORD_$i
+                        INFLUXDB_WRITE_USER_PASSWORD=${!INFLUXDB_WRITE_USER_PASSWORD}
+                        INFLUXDB_READ_USER=INFLUXDB_READ_USER_$i
+                        INFLUXDB_READ_USER=${!INFLUXDB_READ_USER}
+                        INFLUXDB_READ_USER_PASSWORD=INFLUXDB_READ_USER_PASSWORD_$i
+                        INFLUXDB_READ_USER_PASSWORD=${!INFLUXDB_READ_USER_PASSWORD}
 			if [ ! -z "$INFLUXDB_DB" ]; then
-				$INFLUX_CMD "GRANT WRITE ON ""$INFLUXDB_DB"" TO ""$INFLUXDB_WRITE_USER"""
+				$INFLUX_CMD "$CREATE_DB_QUERY $INFLUXDB_DB_1"
 			fi
-		fi
-
-		if [ ! -z "$INFLUXDB_READ_USER" ] && [ -z "$INFLUXDB_READ_USER_PASSWORD" ]; then
-			INFLUXDB_READ_USER_PASSWORD="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
-			echo "INFLUXDB_READ_USER_PASSWORD:$INFLUXDB_READ_USER_PASSWORD"
-		fi
-
-		if [ ! -z "$INFLUXDB_READ_USER" ]; then
-			$INFLUX_CMD "CREATE USER $INFLUXDB_READ_USER WITH PASSWORD '$INFLUXDB_READ_USER_PASSWORD'"
-			$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_READ_USER"""
-
-			if [ ! -z "$INFLUXDB_DB" ]; then
-				$INFLUX_CMD "GRANT READ ON ""$INFLUXDB_DB"" TO ""$INFLUXDB_READ_USER"""
+	
+			if [ ! -z "$INFLUXDB_USER" ] && [ -z "$INFLUXDB_USER_PASSWORD" ]; then
+				INFLUXDB_USER_PASSWORD_1="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
+				echo "INFLUXDB_USER_PASSWORD_1:$INFLUXDB_USER_PASSWORD_1"
 			fi
-		fi
-
+	
+			if [ ! -z "$INFLUXDB_USER" ]; then
+				$INFLUX_CMD "CREATE USER $INFLUXDB_USER WITH PASSWORD '$INFLUXDB_USER_PASSWORD'"
+	
+				$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_USER"""
+	
+				if [ ! -z "$INFLUXDB_DB" ]; then
+					$INFLUX_CMD "GRANT ALL ON ""$INFLUXDB_DB"" TO ""$INFLUXDB_USER"""
+				fi
+			fi
+	
+			if [ ! -z "$INFLUXDB_WRITE_USER" ] && [ -z "$INFLUXDB_WRITE_USER_PASSWORD" ]; then
+				INFLUXDB_WRITE_USER_PASSWORD="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
+				echo "INFLUXDB_WRITE_USER_PASSWORD:$INFLUXDB_WRITE_USER_PASSWORD"
+			fi
+	
+			if [ ! -z "$INFLUXDB_WRITE_USER" ]; then
+				$INFLUX_CMD "CREATE USER $INFLUXDB_WRITE_USER WITH PASSWORD '$INFLUXDB_WRITE_USER_PASSWORD'"
+				$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_WRITE_USER"""
+	
+				if [ ! -z "$INFLUXDB_DB" ]; then
+					$INFLUX_CMD "GRANT WRITE ON ""$INFLUXDB_DB"" TO ""$INFLUXDB_WRITE_USER"""
+				fi
+			fi
+	
+			if [ ! -z "$INFLUXDB_READ_USER" ] && [ -z "$INFLUXDB_READ_USER_PASSWORD" ]; then
+				INFLUXDB_READ_USER_PASSWORD="$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32;echo;)"
+				echo "INFLUXDB_READ_USER_PASSWORD:$INFLUXDB_READ_USER_PASSWORD"
+			fi
+	
+			if [ ! -z "$INFLUXDB_READ_USER" ]; then
+				$INFLUX_CMD "CREATE USER $INFLUXDB_READ_USER WITH PASSWORD '$INFLUXDB_READ_USER_PASSWORD'"
+				$INFLUX_CMD "REVOKE ALL PRIVILEGES FROM ""$INFLUXDB_READ_USER"""
+	
+				if [ ! -z "$INFLUXDB_DB" ]; then
+					$INFLUX_CMD "GRANT READ ON ""$INFLUXDB_DB"" TO ""$INFLUXDB_READ_USER"""
+				fi
+			fi
+		done
 	fi
 
 	for f in /docker-entrypoint-initdb.d/*; do
