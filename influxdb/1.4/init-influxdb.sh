@@ -15,7 +15,7 @@ INFLUXDB_DB=$([ ! -z "$INFLUXDB_DB_1" ] || [ ! -z "$INFLUXDB_DB_2" ] || [ ! -z "
 if ( [ ! -z "$INIT_USERS" ] || [ ! -z "$INFLUXDB_DB" ] || [ "$(ls -A /docker-entrypoint-initdb.d 2> /dev/null)" ] ) && [ ! "$(ls -d /var/lib/influxdb/meta 2>/dev/null)" ]; then
 
 	INIT_QUERY=""
-	CREATE_DB_QUERY="CREATE DATABASE $1"
+	CREATE_DB_QUERY="CREATE DATABASE"
 
 	if [ ! -z "$INIT_USERS" ]; then
 
